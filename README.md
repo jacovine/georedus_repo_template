@@ -1,5 +1,4 @@
-## (Bom exemplo sobre como apresentar a estruturação do código do projeto.
-Como será apresentado, a estrutura contém os seguintes tópicos:
+(Como será apresentado, a estrutura deste documento* deve seguir os seguintes tópicos:
 - Nome do projeto/repositório;
 - Contextualização/Visão geral;
 - Dados utilizados;
@@ -7,6 +6,7 @@ Como será apresentado, a estrutura contém os seguintes tópicos:
 - Como citar;
 - Licença;
 - Agradecimentos)
+* citar o documento do Acesso SAN
 
 # locais-nova-rfb-geocoding
 
