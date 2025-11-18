@@ -1,11 +1,11 @@
 (Como será apresentado, a estrutura deste documento* deve seguir os seguintes tópicos:
-- Nome do projeto/repositório;
-- Contextualização/Visão geral;
-- Dados utilizados;
-- Como usar;
-- Como citar;
-- Licença;
-- Agradecimentos)
+- Nome do projeto/repositório ;
+- Contextualização/Visão geral (Overview);
+- Dados utilizados (Data availability);
+- Como usar (Usage);
+- Como citar (Citation);
+- Licença (Licence);
+- Agradecimentos (Acknowledgments))
 
 \* Citar o documento do Acesso SAN
 
