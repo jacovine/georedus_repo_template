@@ -1,4 +1,4 @@
-## (Exemplo sobre a estruturação do código do projeto)
+## (Bom exemplo sobre como apresentar a estruturação do código do projeto)
 # locais-nova-rfb-geocoding
 
 <!-- badges: start -->
