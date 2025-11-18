@@ -78,13 +78,6 @@ OSF_PAT=bWHtQBmdeMvZXDv2R4twdNLjmakjLUZr4t72ouAbNjwycGtDzfm3gjz4ChYXwbBaBVJxJR
 ACESSOSAN_PASSWORD=MmXN_od_pe*RdHgfKTaKiXdV7KD2qPzW
 ```
 
-Additionally, you will need the following keys in the project's [`_ssh`](_ssh) folder:
-
-- `id_rsa`: The project's private RSA key ([RSA](https://en.wikipedia.org/wiki/RSA_cryptosystem) 4096 bits (OpenSSL)).
-- `id_rsa.pub`: The project's public RSA key.
-
-These project's keys are provided to authorized personnel only. If you need access, please contact the authors.
-
 ## Known Issues
 
 ### Arrow Dependencies
