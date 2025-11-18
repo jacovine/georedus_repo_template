@@ -1,4 +1,13 @@
-## (Bom exemplo sobre como apresentar a estruturação do código do projeto)
+## (Bom exemplo sobre como apresentar a estruturação do código do projeto.
+Como será apresentado, a estrutura contém os seguintes tópicos:
+- Nome do projeto/repositório;
+- Contextualização/Visão geral;
+- Dados utilizados;
+- Como usar;
+- Como citar;
+- Licença;
+- Agradecimentos)
+
 # locais-nova-rfb-geocoding
 
 <!-- badges: start -->
