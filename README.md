@@ -1,5 +1,5 @@
-(Como será apresentado, a estrutura deste documento* deve seguir os seguintes tópicos:
-- Nome do projeto/repositório ;
+(Sugestão de estrutura deste documento, que trata da organização e elementos chaves do repositório. Um exemplo, baseado no Acesso SAN (citar DOI), é apresentado a seguir:
+- Nome do projeto/repositório;
 - Contextualização/Visão geral (Overview);
 - Dados utilizados (Data availability);
 - Como usar (Usage);
@@ -7,7 +7,6 @@
 - Licença (Licence);
 - Agradecimentos (Acknowledgments))
 
-\* Citar o documento do Acesso SAN
 
 # locais-nova-rfb-geocoding
 
