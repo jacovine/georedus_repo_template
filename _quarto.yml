@@ -1,0 +1,73 @@
+editor: source
+
+execute:
+  cache: false # "Danger Will Robinson!"
+  freeze: false # If you plan to use it, remember to disable it afterward!
+
+project:
+  type: website
+  output-dir: docs
+  render: [index.qmd]
+  post-render: "R/_post-render.R"
+
+title: >
+  A Reproducible Pipeline for Processing, Geocoding, and Classifying CNPJs from
+  the Brazilian Federal Revenue Service (RFB) Using the Locais-Nova Scale
+author: "Daniel Vartanian, Clara L. S. Penz, Gabriel Caldeira, Camila N. Fernandes, & Mariana A. Giannotti"
+keyword: >
+  Pipelines, rstats, Data Munging, Data Science, Open Data, Open Science,
+  Spatial Data, Geocoding, CNPJ, Brazilian Federal Revenue Service, RFB,
+  Locais-Nova, Food Establishments, Brazil
+date: today
+date-format: long
+
+website:
+  favicon: images/favicon.svg
+  site-url: https://cem-usp.github.io/locais-nova-rfb-geocoding/
+  repo-url: https://github.com/cem-usp/locais-nova-rfb-geocoding/
+  issue-url: https://github.com/cem-usp/locais-nova-rfb-geocoding/issues/
+  open-graph:
+    image: images/og-image.png
+    image-width: 2400
+    image-height: 1600
+    image-alt: Center for Metropolitan Studies
+  repo-branch: main
+  repo-actions: [edit, source, issue]
+  search: false
+  navbar:
+    title: false
+    background: "#002554"
+    right:
+      - icon: github
+        href: https://github.com/cem-usp/locais-nova-rfb-geocoding/
+        aria-label: GitHub
+
+lightbox:
+  match: auto
+  effect: fade
+  desc-position: bottom
+  loop: false
+
+format:
+  html:
+    toc: true
+    toc-depth: 5
+    toc-location: right
+    locale: en
+    language: en-us
+    code-fold: false
+    code-link: true
+    code-tools: false
+    df-print: paged
+    fig-align: center
+    cap-location: top
+    lightbox: true
+    callout-appearance: simple
+    csl: csl/english-apa-author-date.csl
+    theme: [cosmo, scss/styles.scss, brand]
+    other-links:
+      - text: Center for Metropolitan Studies
+        href: https://centrodametropole.fflch.usp.br
+
+google-scholar: true
+bibliography: references.bib

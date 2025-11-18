@@ -1,0 +1,1159 @@
+```{r}
+#| label: setup
+#| include: false
+
+library(here)
+
+source(here("R", "_setup.R"))
+```
+
+<!-- badges: start -->
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![](https://img.shields.io/badge/OSF-10.17605/OSF.IO/2X6JB-1284C5.svg)](https://doi.org/10.17605/OSF.IO/2X6JB)
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-bd0000.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/license-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+<!-- badges: end -->
+
+## Overview
+
+This report provides a reproducible pipeline for processing, [geocoding](https://en.wikipedia.org/wiki/Address_geocoding), and classifying [CNPJ](https://en.wikipedia.org/wiki/CNPJ)s from the Brazilian Federal Revenue Service ([RFB](https://www.gov.br/receitafederal/)) using the [Locais-Nova](https://doi.org/10.1590/S2237-96222025v34.20240361.en) scale.
+
+For instructions on how to run the pipeline, see the repository [README](https://github.com/cem-usp/locais-nova-rfb-geocoding/blob/main/README.md).
+
+## Problem
+
+The [AcessoSAN](https://doi.org/10.17605/OSF.IO/ZE6WT) project aims to develop methods for measuring and analyzing inequities in access to healthy food in favelas and other urban communities. Achieving this requires a reliable and up-to-date database of food establishments.
+
+The Brazilian Federal Revenue Service ([RFB](https://www.gov.br/receitafederal/)) [CNPJ](https://en.wikipedia.org/wiki/CNPJ)s database lists companies operating in Brazil, including food establishments. However, it does not provide [geocoded information](https://en.wikipedia.org/wiki/Address_geocoding), which is required for spatial analyses. This pipeline addresses that gap by processing and [geocoding](https://en.wikipedia.org/wiki/Address_geocoding) the data, and classifying establishments according to the [Locais-Nova](https://doi.org/10.1590/S2237-96222025v34.20240361.en) scale.
+
+## Data Availability
+
+::: {style="text-align: left;"}
+[![](https://img.shields.io/badge/OSF-10.17605/OSF.IO/2X6JB-1284C5.svg)](https://doi.org/10.17605/OSF.IO/2X6JB)
+:::
+
+The processed data are available in [`csv`](https://en.wikipedia.org/wiki/Comma-separated_values), [`rds`](https://rdrr.io/r/base/readRDS.html) and [`parquet`](https://en.wikipedia.org/wiki/Apache_Parquet) formats through a dedicated repository on the Open Science Framework ([OSF](https://osf.io/)). A metadata file is included alongside the validated datasets.
+
+Because the classification table are not publicly available, only authorized personnel can access the processed files. They are protected with [RSA](https://en.wikipedia.org/wiki/RSA_cryptosystem) 4096-bit encryption ([OpenSSL](https://www.openssl.org/)) and a 32-byte password to ensure data security.
+
+If you already have access to the OSF repository and the project keys, click [here](https://doi.org/10.17605/OSF.IO/2X6JB) to access the data. You can also retrieve these files directly from [R](https://www.r-project.org/) using the [`osfr`](https://docs.ropensci.org/osfr/) package.
+
+## Methods
+
+### Source of Data
+
+The data used in this report come from the following sources:
+
+- Brazilian Federal Revenue Service ([RFB](https://www.gov.br/receitafederal/)):
+  - Data on legal entities from the National Register of Legal Entities ([CNPJ](https://en.wikipedia.org/wiki/CNPJ)) [database](https://dados.gov.br/dados/conjuntos-dados/cadastro-nacional-da-pessoa-juridica---cnpj), used for company identification.
+  - Data on [Brazilian agencies and municipalities](https://dados.gov.br/dados/conjuntos-dados/tabela-de-rgos-e-municpios) (_Tabela de Órgãos e Municípios_, TOM).
+- Brazilian Institute of Geography and Statistics ([IBGE](https://www.ibge.gov.br/)):
+  - Municipality data via the [`geobr`](https://ipeagit.github.io/geobr/) R package.
+  - Open spatial datasets of Brazilian addresses from the National Address Register for Statistical Purposes ([CNEFE](https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html)), used for geocoding via the [`geocodebr`](https://ipeagit.github.io/geocodebr/) R package.
+- Center for Metropolitan Studies ([CEM](https://centrodametropole.fflch.usp.br/)): Lookup table providing the classification linking the establishments [CNAEs](https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/cadastros/cnpj/classificacao-nacional-de-atividades-economicas-2013-cnae) (National Classification of Economic Activities) codes to the [Locais-Nova](https://doi.org/10.1590/S2237-96222025v34.20240361.en) groups. This data will remain private until further notice.
+
+### Data Munging
+
+The data munging follow the data science workflow outlined by @wickham2023e, as illustrated in [@fig-wickham-at-al-2023-figure-1]. All processes were made using
+the [Quarto](https://quarto.org/) publishing system, along with the [AWK](https://en.wikipedia.org/wiki/AWK) [@aho2023] and [R](https://www.r-project.org/) [@rcoreteama] programming languages, supported by several R packages.
+
+For data manipulation and workflow, priority was given to packages from the [tidyverse](https://www.tidyverse.org/), [rOpenSci](https://ropensci.org/) and [r-spatial](https://r-spatial.org/) ecosystems, as well as other packages adhering to the tidy tools manifesto [@wickham2023c].
+
+::: {#fig-wickham-at-al-2023-figure-1}
+![](images/wickham-at-al-2023-figure-1.png){width=75%}
+
+[Source: Reproduced from @wickham2023e.]{.legend}
+
+Data science workflow created by Wickham, Çetinkaya-Runde, and Grolemund.
+:::
+
+### Code Style
+
+The Tidyverse [code style guide](https://style.tidyverse.org/) and [design principles](https://design.tidyverse.org/) were followed to ensure consistency and enhance readability.
+
+### Reproducibility
+
+The pipeline is fully reproducible and can be run again at any time. To ensure consistent results, the [`renv`](https://rstudio.github.io/renv/) package [@usheya] is used to manage and restore the R environment. See the [README](https://github.com/cem-usp/locais-nova-rfb-geocoding/blob/main/README.md) file in the code repository to learn how to run it.
+
+## Set the Environment
+
+::: {.callout-note}
+This section sets up the R environment needed for the workflow.
+:::
+
+### Load Packages
+
+```{r}
+#| label: Set the Environment
+#| code-fold: false
+#| output: false
+
+library(askpass)
+library(brandr)
+library(beepr)
+library(curl)
+library(dplyr)
+library(fs)
+library(geobr)
+library(geocodebr)
+library(ggplot2)
+library(googlesheets4)
+library(here)
+library(htmltools)
+library(labelled)
+library(lockr) # github.com/danielvartan/lockr
+library(lubridate)
+library(magrittr)
+library(nanoparquet)
+library(orbis) # github.com/danielvartan/orbis
+library(osfr)
+library(purrr)
+library(readr)
+library(rvest)
+library(rutils) # github.com/danielvartan/rutils
+library(sf)
+library(stringr)
+library(tidyr)
+library(vroom)
+library(zip)
+```
+
+### Set Keys
+
+::: {.callout-note}
+See the [Data Availability](#data-availability) section for more information.
+:::
+
+```{r}
+#| output: false
+
+osf_auth(Sys.getenv("OSF_PAT")) # askpass())
+```
+
+```{r}
+#| output: false
+
+gs4_auth(cache = ".secrets")
+```
+
+```{r}
+public_key <- here("_ssh", "id_rsa.pub")
+```
+
+```{r}
+private_key <- here("_ssh", "id_rsa")
+```
+
+```{r}
+password <- Sys.getenv("ACESSOSAN_PASSWORD") # askpass()
+```
+
+### Set Input and Output Paths
+
+```{r}
+raw_data_dir <- here("data-raw")
+data_dir <- here("data")
+```
+
+```{r}
+for (i in c(raw_data_dir, data_dir)) {
+  if (!dir_exists(i)) dir_create(i, recurse = TRUE)
+}
+```
+
+### Set Initial Variables
+
+::: {.callout-note}
+These variables specify which consolidated RFB dataset to use and which municipalities to process.
+:::
+
+```{r}
+set.seed(2025)
+```
+
+```{r}
+#| output: false
+
+set_en_us_locale()
+```
+
+```{r}
+year <- 2025
+```
+
+```{r}
+month <- 1
+```
+
+```{r}
+municipalities <- c( # IBGE Codes
+  1721000, # Palmas
+  2507507, # João Pessoa
+  3106200, # Belo Horizonte
+  3550308, # São Paulo
+  4314902, # Porto Alegre
+  5208707, # Goiânia
+  5300108 # Brasília
+)
+```
+
+## Download Locais-Nova CNAE Lookup Table
+
+::: {.callout-note}
+See the [Source of Data](#source-of-data) section for more information.
+:::
+
+```{r}
+#| label: Download Locais-Nova CNAE Lookup Table
+
+lookup_data <-
+  read_sheet(
+    ss = "1ipCw2FM3aUOdRd4w55J5SUEgXDCogxWZF-NZi0A-o_4",
+    sheet = "Dataset"
+  ) |>
+  mutate(
+    g0 = if_else(
+      g1_g2 == TRUE & g3 == FALSE & g4 == FALSE,
+      TRUE,
+      FALSE
+    )
+  )
+```
+
+```{r}
+lookup_data |> glimpse()
+```
+
+## Download Agencies and Municipalities (TOM) Data
+
+::: {.callout-note}
+See the [Source of Data](#source-of-data) section for more information.
+:::
+
+```{r}
+#| label: Download Agencies and Municipalities (TOM) Data
+#| eval: false
+
+url <- "https://www.gov.br/receitafederal/dados/municipios.csv"
+```
+
+```{r}
+#| eval: false
+
+curl_download(url, destfile = file.path(raw_data_dir, "municipios.csv"))
+```
+
+## Download and Import IBGE Municipalities Data
+
+::: {.callout-note}
+See the [Source of Data](#source-of-data) section for more information.
+:::
+
+```{r}
+#| labels: Download and Import IBGE Municipalities Data
+
+municipalities_data <- brazil_municipality(year = year)
+```
+
+```{r}
+municipalities_data |> glimpse()
+```
+
+## Download RFB Data
+
+::: {.callout-note}
+See the [Source of Data](#source-of-data) section for more information.
+:::
+
+### Download Files
+
+```{r}
+#| label: Download RFB Data
+
+root <- file.path( # Don´t change the function!
+    "https://arquivos.receitafederal.gov.br",
+    "dados",
+    "cnpj",
+    "dados_abertos_cnpj"
+  )
+```
+
+```{r}
+path <- root |> file.path(paste0("2025-", str_pad(month, 2, pad = 0)))
+
+urls <-
+  path |>
+  read_html() |>
+  html_elements("a") |>
+  html_attr("href") |>
+  str_subset("\\.zip$") %>%
+  file.path(path, .)
+```
+
+```{r}
+urls |>
+  map_dbl(.f = get_file_size, .progress = TRUE) |>
+  sum() |>
+  as_fs_bytes()
+```
+
+```{r}
+#| eval: false
+
+urls |> download_file(dir = raw_data_dir)
+```
+
+### Unzip Files
+
+```{r}
+#| eval: false
+
+zip_files <- raw_data_dir |> dir_ls(type = "file", regexp = "\\.zip$")
+```
+
+```{r}
+#| eval: false
+#| output: false
+
+zip_files |> map(\(x) unzip(x, exdir = raw_data_dir), .progress = TRUE)
+```
+
+```{r}
+#| eval: false
+
+zip_files |> file_delete()
+```
+
+## Import TOM Municipality Codes and Convert IBGE Codes
+
+::: {.callout-note}
+RFB data identifies municipalities using a different coding scheme (_Tabela de Órgãos e Municípios_, [TOM](https://dados.gov.br/dados/conjuntos-dados/tabela-de-rgos-e-municpios)) than IBGE codes. Mapping IBGE codes to the corresponding TOM codes is therefore required.
+:::
+
+```{r}
+#| label: Import TOM Municipality Codes and Convert IBGE Codes
+
+municipalities_tom_data <-
+  raw_data_dir |>
+  path("municipios.csv") |>
+  read_delim(
+    delim = ";",
+    col_names = FALSE,
+    col_types = cols(.default = "c"),
+    progress = FALSE
+  ) |>
+  slice(-1) |>
+  mutate(
+    across(
+      .cols = everything(),
+      .fns = \(x) iconv(x, from = "Windows-1252", to = "UTF-8") # iconvlist()
+    )
+  ) |>
+  rename_with(
+    \(x) c(
+    "municipality_code_tom",
+    "municipality_code_ibge",
+    "municipality_tom",
+    "municipality_ibge",
+    "uf"
+    )
+  ) |>
+  mutate(
+    municipality_code_tom = as.integer(municipality_code_tom),
+    municipality_code_ibge = as.integer(municipality_code_ibge)
+  )
+```
+
+```{r}
+municipalities_tom_data |> glimpse()
+```
+
+```{r}
+municipalities
+```
+
+```{r}
+municipalities <-
+  municipalities_tom_data |>
+  filter(municipality_code_ibge %in% municipalities) |>
+  pull(municipality_code_tom)
+```
+
+```{r}
+municipalities
+```
+
+## Import Data
+
+::: {.callout-note}
+The [AWK](https://www.gnu.org/software/gawk/) programming language and the [vroom](https://vroom.r-lib.org/) R package are used to read and filter the data efficiently, without loading it entirely into memory.
+
+Only establishments with an *Active* registration status (`$6 == "02"`) and no special status (`$29 == ""`) are included. The data is then filtered by municipality (`$21 == municipalities`), and duplicate CNPJs are removed.
+:::
+
+```{r}
+#| label: Import Data
+
+establishment_data <-
+  raw_data_dir |>
+  dir_ls(type = "file", regexp = "\\.ESTABELE$") |>
+  map(
+    function(x) {
+      vroom(
+        file = pipe(
+          paste0(
+            "awk ",
+            "-F ",
+            "';' ",
+            "'{ ",
+            "if (",
+            '($6 == "', '\\"02\\"', '")',
+            " && (",
+            paste0('$21 == "\\"', municipalities, '\\""', collapse = " || "),
+            ") && ",
+            '($29 == "', '\\"\\"', '")',
+            ") ",
+            "print",
+            " }' ",
+            x
+          )
+        ),
+        delim = ";",
+        col_names = c(
+          "cnpj_basic",
+          "cnpj_order",
+          "cnpj_dv",
+          "branch_identifier",
+          "trade_name",
+          "registration_status",
+          "registration_status_date",
+          "registration_status_reason",
+          "foreign_city_name",
+          "country",
+          "start_date",
+          "cnae_primary",
+          "cnae_secondary",
+          "street_type",
+          "street_name",
+          "number",
+          "address_complement",
+          "neighborhood",
+          "postal_code",
+          "federal_unit",
+          "municipality_code_tom",
+          "phone_area_code_1",
+          "phone_number_1",
+          "phone_area_code_2",
+          "phone_number_2",
+          "fax_area_code",
+          "fax_number",
+          "email",
+          "special_status",
+          "special_status_date"
+        ),
+        col_types = cols(.default = "c"),
+        col_select = c(
+          "cnpj_basic", "cnpj_order", "cnpj_dv", "cnae_primary",
+          "registration_status_date",
+          "federal_unit", "municipality_code_tom", "street_type",
+          "street_name", "number", "address_complement", "neighborhood",
+          "postal_code"
+        ),
+        show_col_types = FALSE
+      ) |>
+        distinct(cnpj_basic, cnpj_order, cnpj_dv, .keep_all = TRUE)
+    },
+    .progress = TRUE
+  ) |>
+    list_rbind()
+```
+
+```{r}
+establishment_data |> glimpse()
+```
+
+## Visualize Registration Status Dates
+
+::: {.callout-note}
+These dates indicate when establishments were registered as *Active*.
+:::
+
+```{r}
+#| label: Visualize Registration Status Dates
+
+establishment_data |>
+  mutate(
+    registration_status_date = ymd(registration_status_date)
+  ) |>
+  ggplot(aes(x = registration_status_date)) +
+  geom_histogram(
+    bins = 30,
+    fill = get_brand_color("blue")
+  ) +
+  scale_fill_brand_d() +
+  labs(
+    x = "Registration Status Date",
+    y = "Frequency"
+  )
+```
+
+## Filter Data
+
+::: {.callout-note}
+The Locais-Nova lookup table is used to filter establishment data and classify establishments into the scale groups.
+
+For more details on the Locais-Nova lookup table, see the [Source of Data](#source-of-data) section.
+:::
+
+```{r}
+#| label: Filter Data
+
+establishment_data <-
+  establishment_data |>
+  mutate(cnae = str_pad(cnae_primary, 7, pad = "0")) |>
+  left_join(lookup_data, by = join_by(cnae, federal_unit)) |>
+  rename(
+    locais_nova_g0 = g0,
+    locais_nova_g1_g2 = g1_g2,
+    locais_nova_g3 = g3,
+    locais_nova_g4 = g4
+  ) |>
+  drop_na(starts_with("locais_nova"))
+```
+
+```{r}
+establishment_data |> glimpse()
+```
+
+## Tidy the Data
+
+::: {.callout-note}
+Some tidying operations are performed to ensure the data is in a suitable format for analysis.
+:::
+
+```{r}
+#| label: Tidy the Data
+
+establishment_data <-
+  establishment_data |>
+  mutate(municipality_code_tom = as.integer(municipality_code_tom)) |>
+  left_join(municipalities_tom_data, by = join_by(municipality_code_tom)) |>
+  rename(
+    municipality_code = municipality_code_ibge,
+    municipality = municipality_ibge,
+    complement = address_complement
+  ) |>
+  left_join(
+    municipalities_data,
+    by = join_by(federal_unit, municipality_code),
+    suffix = c("", ".y")
+  ) |>
+  mutate(
+    cnpj_basic = str_pad(cnpj_basic, 8, pad = "0"),
+    cnpj_order = str_pad(cnpj_order, 4, pad = "0"),
+    cnpj_dv = str_pad(cnpj_dv, 2, pad = "0"),
+    cnpj = if_else(
+      !is.na(cnpj_basic) & !is.na(cnpj_order) & !is.na(cnpj_dv),
+      paste0(
+        str_sub(cnpj_basic, 1, 2),
+        ".", str_sub(cnpj_basic, 3, 5),
+        ".", str_sub(cnpj_basic, 6, 8),
+        "/", cnpj_order,
+        "-", cnpj_dv
+      ),
+      NA_character_
+    ),
+    cnae = if_else(
+      !is.na(cnae),
+      paste0(
+        str_sub(cnae, 1, 4),
+        "-", str_sub(cnae, 5, 5),
+        "/", str_sub(cnae, 6, 7)
+      ),
+      NA_character_
+    ),
+    municipality_code = as.integer(municipality_code),
+    street_type = str_to_title(street_type),
+    street_name = str_to_title(street_name),
+    address = if_else(
+      !is.na(street_type) & !is.na(street_name),
+      paste(street_type, street_name),
+      NA_character_
+    ),
+    number =
+      number |>
+      str_remove_all("\\D") |>
+      str_trim() |>
+      as.numeric() |>
+      as.character() |>
+      suppressWarnings(),
+    complement = str_to_title(complement),
+    neighborhood = str_to_title(neighborhood),
+    postal_code =
+      postal_code |>
+      str_remove_all("\\D") |>
+      str_pad(pad = 0, width = 8),
+    postal_code = if_else(
+      !is.na(postal_code),
+      paste0(
+        str_sub(postal_code, 1, 5),
+        "-",
+        str_sub(postal_code, 6, 8)
+      ),
+      NA_character_
+    )
+  ) |>
+  mutate(
+    across(
+      .cols = where(is.character),
+      .fns = function(x) {
+        Encoding(x) <- "UTF-8"
+
+        iconv(x, from = "", to = "UTF-8", sub = "")
+      }
+    )
+  ) |>
+  select(
+    cnpj, cnae,
+    region_code, region, state_code, state, federal_unit,
+    municipality_code, municipality,
+    address, number, complement, neighborhood, postal_code,
+    locais_nova_g0, locais_nova_g1_g2, locais_nova_g3, locais_nova_g4
+  )
+```
+
+```{r}
+establishment_data |> glimpse()
+```
+
+## Arrange the Data
+
+::: {.callout-note}
+The data is arranged by municipality code and [CNAE](https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/cadastros/cnpj/classificacao-nacional-de-atividades-economicas-2013-cnae).
+:::
+
+```{r}
+#| label: Arrange the Data
+
+establishment_data <-
+  establishment_data |>
+  arrange(municipality_code, cnae)
+```
+
+```{r}
+establishment_data |> glimpse()
+```
+
+## Geocode the Data
+
+::: {.callout-note}
+Geocoding is performed with the [`geocodebr`](https://ipeagit.github.io/geocodebr/) R package, which relies on open spatial data from the Brazilian Institute of Geography and Statistics ([IBGE](https://www.ibge.gov.br/)). The package uses address information from the National Address Register for Statistical Purposes ([CNEFE](https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html)).
+:::
+
+```{r}
+#| label: Geocode the Data
+
+fields <- definir_campos(
+  estado = "federal_unit",
+  municipio = "municipality_code",
+  logradouro = "address",
+  numero = "number",
+  cep = "postal_code",
+  localidade = "neighborhood"
+)
+```
+
+```{r}
+establishment_data <-
+  establishment_data |>
+  geocode(
+    campos_endereco = fields,
+    resultado_sf = FALSE,
+    verboso = TRUE,
+    cache = TRUE,
+    n_cores = 1,
+    resolver_empates = TRUE
+  )
+```
+
+```{r}
+establishment_data <-
+  establishment_data |>
+  as_tibble() |>
+  rename(
+    latitude = lat,
+    longitude = lon,
+    geocodebr_precision = precisao,
+    geocodebr_type_of_result = tipo_resultado,
+    geocodebr_deviation_meters = desvio_metros,
+    geocodebr_address_found = endereco_encontrado,
+    geocodebr_ambiguous = empate
+  ) |>
+  relocate(starts_with("locais_nova"), .after = geocodebr_ambiguous) |>
+  drop_na(all_of(c("latitude", "longitude")))
+```
+
+```{r}
+establishment_data |> glimpse()
+```
+
+## Visualize Geocoding Precision
+
+```{r}
+#| label: Visualize Geocoding Precision
+
+establishment_data |>
+  ggplot(aes(geocodebr_precision)) +
+  geom_bar(fill = get_brand_color("blue")) +
+  labs(
+    x = "{geocodebr} Precision",
+    y = "Frequency"
+  )
+```
+
+## Data Dictionary
+
+```{r}
+#| labels: Data Dictionary
+
+metadata <-
+  establishment_data |>
+  `var_label<-`(
+    list(
+      cnpj = "CNPJ number",
+      cnae = "Primary activity CNAE",
+      region_code = "IBGE region code",
+      region = "Region name",
+      state_code = "IBGE state code",
+      state = "State name",
+      federal_unit = "Federal unit abbreviation",
+      municipality_code = "IBGE municipality code",
+      municipality = "Municipality name",
+      address = "Street address",
+      number = "Address number",
+      complement = "Address complement",
+      neighborhood = "Neighborhood",
+      postal_code = "Postal code",
+      latitude = "Latitude",
+      longitude = "Longitude",
+      geocodebr_precision = "{geocodebr} precision value",
+      geocodebr_type_of_result = "{geocodebr} result type",
+      geocodebr_deviation_meters = "{geocodebr} deviation (meters)",
+      geocodebr_address_found = "{geocodebr} address returned",
+      geocodebr_ambiguous = "{geocodebr} ambiguous result",
+      locais_nova_g0 = "Locais-Nova Group 0 indicator",
+      locais_nova_g1_g2 = "Locais-Nova Groups 1 and 2 indicator",
+      locais_nova_g3 = "Locais-Nova Group 3 indicator",
+      locais_nova_g4 = "Locais-Nova Group 4 indicator"
+    )
+  ) |>
+  generate_dictionary(details = "full") |>
+  convert_list_columns_to_character()
+```
+
+```{r}
+metadata
+```
+
+```{r}
+establishment_data
+```
+
+## Save the Valid Data
+
+::: {.callout-note}
+The processed data are available in [`csv`](https://en.wikipedia.org/wiki/Comma-separated_values), [`rds`](https://rdrr.io/r/base/readRDS.html) and [`parquet`](https://en.wikipedia.org/wiki/Apache_Parquet) formats through a dedicated repository on the Open Science Framework ([OSF](https://osf.io/)). See the [Data Availability](#data-availability) section for more information.
+:::
+
+### Clean Old Data Files
+
+```{r}
+#| label: Save the Valid Data
+
+if (dir_exists(data_dir)) {
+  dir_delete(data_dir)
+  dir_create(data_dir, recurse = TRUE)
+}
+```
+
+### Write Data
+
+```{r}
+valid_file_pattern <- paste0(
+  year,
+  "-",
+  str_pad(month, width = 2, pad = "0")
+)
+```
+
+```{r}
+establishment_data |>
+  write_csv(
+    here(data_dir, paste0(valid_file_pattern, ".csv"))
+  )
+```
+
+```{r}
+establishment_data |>
+  write_rds(
+    here(data_dir, paste0(valid_file_pattern, ".rds"))
+  )
+```
+
+```{r}
+establishment_data |>
+  write_parquet(
+    here(data_dir, paste0(valid_file_pattern, ".parquet"))
+  )
+```
+
+### Lock Data
+
+```{r}
+#| output: false
+
+here(data_dir, paste0(valid_file_pattern, ".csv")) |>
+  lock_file(
+    public_key = public_key,
+    suffix = ".lockr",
+    remove_file = TRUE
+  )
+```
+
+```{r}
+#| output: false
+
+here(data_dir, paste0(valid_file_pattern, ".rds")) |>
+  lock_file(
+    public_key = public_key,
+    suffix = ".lockr",
+    remove_file = TRUE
+  )
+```
+
+```{r}
+#| output: false
+
+here(data_dir, paste0(valid_file_pattern, ".parquet")) |>
+  lock_file(
+    public_key = public_key,
+    suffix = ".lockr",
+    remove_file = TRUE
+  )
+```
+
+### Write Metadata
+
+```{r}
+metadata_file_pattern <- paste0(
+  year,
+  "-",
+  str_pad(month, width = 2, pad = "0"),
+  "-",
+  "metadata"
+)
+```
+
+```{r}
+metadata |>
+  write_csv(
+    here("data", paste0(metadata_file_pattern, ".csv"))
+  )
+```
+
+```{r}
+metadata |>
+  write_rds(
+    here("data", paste0(metadata_file_pattern, ".rds"))
+  )
+```
+
+<!-- ## Upload the Data to OSF (Optional) -->
+
+```{r}
+#| eval: false
+#| include: false
+
+osf_id <- paste0("https://osf.io/", "2x6jb")
+
+osf_upload(
+  x = osf_retrieve_node(osf_id),
+  path = c(
+    here("data", paste0(valid_file_pattern, ".csv.lockr")),
+    here("data", paste0(valid_file_pattern, ".rds.lockr")),
+    here("data", paste0(valid_file_pattern, ".parquet.lockr")),
+    here("data", paste0(metadata_file_pattern, ".csv")),
+    here("data", paste0(metadata_file_pattern, ".rds"))
+  ),
+  conflicts = "overwrite"
+)
+```
+
+<!-- ## Unlock Data (Optional) -->
+
+```{r}
+#| eval: false
+#| include: false
+#| output: false
+
+here(data_dir, paste0(valid_file_pattern, ".rds.lockr")) |>
+  unlock_file(
+    private_key = private_key,
+    suffix = ".lockr",
+    remove_file = TRUE,
+    password = password
+  )
+```
+
+<!-- ## Read Data (Optional) -->
+
+```{r}
+#| eval: false
+#| include: false
+
+establishment_data <-
+  here(data_dir, paste0(valid_file_pattern, ".rds")) |>
+  read_rds()
+```
+
+## Visualize Geocoding
+
+### Convert all TOM codes to their equivalent IBGE codes
+
+```{r}
+municipalities <-
+  municipalities_tom_data |>
+  filter(municipality_code_tom %in% municipalities) |>
+  pull(municipality_code_ibge) |>
+  sort()
+```
+
+### Plot the Data
+
+```{r}
+#| label: Visualize Geocoding
+#| fig-width: 10
+#| fig-height: 6
+
+for (i in municipalities) {
+  # Set Shape -----
+
+  shape <-
+    i |>
+    read_municipality(
+      year = closest_geobr_year(year, verbose = FALSE),
+      showProgress = FALSE
+    ) |>
+    st_transform(st_crs(4326)) |>
+    suppressMessages()
+
+  # Prepare Data -----
+
+  plot_data <-
+    establishment_data |>
+    filter(municipality_code == i) |>
+    pivot_longer(
+      cols = all_of(
+        c(
+          "locais_nova_g0", "locais_nova_g1_g2", "locais_nova_g3",
+          "locais_nova_g4"
+        )
+      ),
+      names_to = "group",
+      values_to = "value"
+    ) |>
+    filter(value == TRUE) |>
+    st_as_sf(
+      coords = c("longitude", "latitude"),
+      crs = 4326
+    ) |>
+    st_join(shape, join = st_within, left = FALSE) %>%
+    mutate(
+      latitude = st_coordinates(.)[,2],
+      longitude = st_coordinates(.)[,1]
+    ) |>
+    st_drop_geometry() |>
+    transmute(
+      group =
+        group |>
+        str_remove("locais_nova_") |>
+        str_to_upper() |>
+        str_replace("_", "-"),
+      latitude,
+      longitude
+    )
+
+  # Plot Data ---
+
+  plot <-
+    ggplot() +
+    geom_sf(
+      data = shape,
+      fill = "gray90",
+      color = "black"
+    ) +
+    geom_point(
+      data = plot_data,
+      mapping = aes(x = longitude, y = latitude, color = group),
+      size = 0.01
+    ) +
+    facet_wrap(~ group, ncol = 4) +
+    coord_sf(crs = 4326) +
+    scale_x_continuous(labels = NULL, breaks = NULL) +
+    scale_y_continuous(labels = NULL, breaks = NULL) +
+    scale_colour_brand_d() +
+    theme(legend.position = "none") +
+    labs(
+      title = paste(
+        "Locais-Nova Establishments in",
+        municipalities_data |>
+          filter(municipality_code == i) |>
+          pull(municipality)
+      ),
+      x = NULL,
+      y = NULL,
+      color = NULL,
+      caption =
+        paste0(
+          "Source: ",
+          "Brazilian Federal Revenue Service (RFB), as of ",
+          month.name[month], " ",
+          year,
+          "."
+        )
+    )
+
+  print(plot)
+}
+```
+
+## Citation
+
+::: {.callout-important}
+When using this data, you must also cite the original data sources.
+:::
+
+To cite this work, please use the following format:
+
+Vartanian, D., Penz, C. L. S., Caldeira, G., Fernandes, C. N., & Giannotti, M. A. (2025). *A reproducible pipeline for processing, geocoding, and classifying CNPJs from the Brazilian Federal Revenue Service (RFB) using the Locais-Nova scale* \[Computer software\]. Center for Metropolitan Studies of the University of São Paulo. <https://cem-usp.github.io/locais-nova-rfb-geocoding>
+
+A BibLaTeX entry for LaTeX users is:
+
+```latex
+@software{vartanian2025,
+  title = {A reproducible pipeline for processing, geocoding, and classifying CNPJs from the Brazilian Federal Revenue Service (RFB) using the Locais-Nova scale},
+  author = {{Daniel Vartanian} and {Clara de Lima e Silva Penz} and {Gabriel Caldeira} and {Camila Nastari Fernandes} and {Mariana Abrantes Giannotti}},
+  year = {2025},
+  address = {São Paulo},
+  institution = {Center for Metropolitan Studies of the University of São Paulo},
+  langid = {en},
+  url = {https://cem-usp.github.io/locais-nova-rfb-geocoding}
+}
+```
+
+## License
+
+::: {style="text-align: left;"}
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-bd0000.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/license-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+:::
+
+::: {.callout-important}
+The original data sources may be subject to their own licensing terms and conditions.
+:::
+
+The code in this repository is licensed under the [GNU General Public License Version 3](https://www.gnu.org/licenses/gpl-3.0), while the report is available under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+```
+Copyright (C) 2025 Center for Metropolitan Studies
+
+The code in this report is free software: you can redistribute it and/or
+modify it under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
+```
+
+## Acknowledgments
+
+```{r, results='asis'}
+#| eval: true
+#| echo: false
+
+blocks <- list(
+  list(
+    logo_link = "https://doi.org/10.17605/OSF.IO/ZE6WT",
+    logo_src = "images/acessosan-logo.svg",
+    logo_alt = "AcessoSAN Logo",
+    logo_width = 140,
+    text = 'This work is part of a research project by the Polytechnic School (<a href="https://www.poli.usp.br/">Poli</a>) of the University of São Paulo (<a href="https://usp.br/">USP</a>), in partnership with the Secretariat for Food and Nutrition Security (<a href="https://www.gov.br/mds/pt-br/orgaos/SESAN">SESAN</a>) of the Ministry of Social Development, Family, and the Fight Against Hunger (<a href="https://www.gov.br/mds/">MDS</a>), titled: <em>AcessoSAN: Mapping Food Access to Support Public Policies on Food and Nutrition Security and Hunger Reduction in Brazilian Cities</em>.'
+  ),
+  list(
+    logo_link = "https://centrodametropole.fflch.usp.br",
+    logo_src = "images/cem-icon.svg",
+    logo_alt = "CEM Logo",
+    logo_width = 190,
+    text = 'This work was developed with support from the Center for Metropolitan Studies (<a href="https://centrodametropole.fflch.usp.br">CEM</a>) based at the School of Philosophy, Letters and Human Sciences (<a href="https://www.fflch.usp.br/">FFLCH</a>) of the University of São Paulo (<a href="https://usp.br">USP</a>) and at the Brazilian Center for Analysis and Planning (<a href="https://cebrap.org.br/">CEBRAP</a>).'
+  ),
+  list(
+    logo_link = "https://fapesp.br/",
+    logo_src = "images/fapesp-logo.svg",
+    logo_alt = "FAPESP Logo",
+    logo_width = 160,
+    text = 'This study was financed, in part, by the São Paulo Research Foundation (<a href="https://fapesp.br/">FAPESP</a>), Brazil. Process Number <a href="https://bv.fapesp.br/en/bolsas/231507/geospatial-data-science-applied-to-food-policies/">2025/17879-2</a>.'
+  )
+)
+
+blocks |>
+  lapply(
+    function(x) {
+      div(
+        style = paste0(
+          "display: flex; ",
+          "align-items: flex-start; ",
+          "margin-bottom: 2em;"
+        ),
+        div(
+          style = paste0(
+            "flex: 0 0 30%; ",
+            "display: flex; ",
+            "justify-content: center; ",
+            "margin: auto 0;"
+          ),
+          tags$a(
+            href = x$logo_link,
+            tags$img(
+              src = x$logo_src,
+              alt = x$logo_alt,
+              style = paste0(
+                "max-width: ", x$logo_width, "px; ",
+                "width: 100%; ",
+                "height: auto;"
+              )
+            )
+          )
+        ),
+        div(
+          style = paste0(
+            "flex: 1; ",
+            "padding-left: 1em;"
+          ),
+          HTML(x$text)
+        )
+      )
+    }
+  ) |>
+  tagList() |>
+  browsable()
+```
+
+## References {.unnumbered}
+
+::: {#refs}
+:::
