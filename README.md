@@ -7,7 +7,7 @@
 - Licença;
 - Agradecimentos)
 
-* citar o documento do Acesso SAN
+\* citar o documento do Acesso SAN
 
 # locais-nova-rfb-geocoding
 
